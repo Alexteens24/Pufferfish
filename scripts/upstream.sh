@@ -3,10 +3,8 @@ exit_on_error() {
     exit 1
 }
 
-git reset HEAD --hard
-
 oldHash=$(grep "paperRef=" gradle.properties | cut -d "=" -f2)
-newHash=$(curl -s https://api.github.com/repos/PaperMC/paper/commits/ver/1.21.10 | jq -r .sha)
+newHash=$(curl -s https://api.github.com/repos/PaperMC/paper/commits/ver/26.1.2 | jq -r .sha)
 
 if [ "$oldHash" = "$newHash" ]; then
     echo "Upstream has not updated!"
@@ -18,10 +16,10 @@ echo "Updating paper: $oldHash -> $newHash"
 sed -i "s/$oldHash/$newHash/g" gradle.properties
 git add gradle.properties
 
-./gradlew applyAllPatches || exit_on_error "An error occurred when merging patches!"
-./gradlew rebuildAllServerPatches || exit_on_error "An error occurred when rebuilding server patches!"
-./gradlew rebuildPaperApiPatches || exit_on_error "An error occurred when rebuilding API patches!"
-./gradlew createMojmapPaperclipJar || exit_on_error "An error occurred when building!"
+./gradlew applyAllPatches --no-configuration-cache || exit_on_error "An error occurred when merging patches!"
+./gradlew :pufferfish-server:rebuildAllServerPatches --no-configuration-cache || exit_on_error "An error occurred when rebuilding server patches!"
+./gradlew rebuildPaperApiFeaturePatches --no-configuration-cache || exit_on_error "An error occurred when rebuilding API patches!"
+./gradlew createPaperclipJar --no-configuration-cache || exit_on_error "An error occurred when building!"
 
 scripts/upstreamCommit.sh $oldHash $newHash
 

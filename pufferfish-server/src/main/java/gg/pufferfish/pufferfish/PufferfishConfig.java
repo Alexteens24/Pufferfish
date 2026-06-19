@@ -1,33 +1,24 @@
 package gg.pufferfish.pufferfish;
 
+import gg.pufferfish.pufferfish.compat.ServerConfigurations;
+import gg.pufferfish.pufferfish.flare.FlareCommand;
 import gg.pufferfish.pufferfish.simd.SIMDDetection;
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.server.MinecraftServer;
-import org.apache.logging.log4j.Level;
-import org.bukkit.configuration.ConfigurationSection;
-import net.minecraft.world.entity.EntityType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URI;
 import java.util.List;
-import gg.pufferfish.pufferfish.flare.FlareCommand;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
-import org.apache.logging.log4j.Level;
+import net.minecraft.world.entity.EntityType;
+import org.bukkit.command.SimpleCommandMap;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.jetbrains.annotations.Nullable;
 import org.simpleyaml.configuration.comments.CommentType;
 import org.simpleyaml.configuration.file.YamlFile;
 import org.simpleyaml.exceptions.InvalidConfigurationException;
-import org.bukkit.command.SimpleCommandMap;
-
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.List;
-import java.net.URI;
-import java.util.Collections;
 
 public class PufferfishConfig {
 	
@@ -55,7 +46,7 @@ public class PufferfishConfig {
 	}
 	
 	public static void load() throws IOException {
-		File configFile = new File("pufferfish.yml");
+		File configFile = ServerConfigurations.pufferfishConfig();
 		
 		if (configFile.exists()) {
 			try {
@@ -242,7 +233,7 @@ public class PufferfishConfig {
         for (EntityType<?> entityType : BuiltInRegistries.ENTITY_TYPE) {
             entityType.dabEnabled = true; // reset all, before setting the ones to true
         }
-        getStringList("dab.blacklisted-entities", "activation-range.blacklisted-entities", Collections.emptyList(), "A list of entities to ignore for activation")
+        getStringList("dab.blacklisted-entities", "activation-range.blacklisted-entities", List.of("warden"), "A list of entities to ignore for activation")
                 .forEach(name -> EntityType.byString(name).ifPresentOrElse(entityType -> {
                     entityType.dabEnabled = false;
                 }, () -> MinecraftServer.LOGGER.warn("Unknown entity \"" + name + "\"")));

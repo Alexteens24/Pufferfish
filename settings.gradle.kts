@@ -1,9 +1,51 @@
+import java.util.Locale
+
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven("https://papermc.io/repo/repository/maven-public/")
+        maven("https://repo.papermc.io/repository/maven-public/")
     }
 }
 
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
+if (!file(".git").exists()) {
+    val errorText = """
+        
+        =====================[ ERROR ]=====================
+         The Pufferfish project directory is not a properly cloned Git repository.
+         
+         In order to build Pufferfish from source you must clone
+         the Pufferfish repository using Git, not download a code
+         zip from GitHub.
+         
+         Built Pufferfish jars are available for download at
+         https://pufferfish.host/downloads
+         
+         See https://github.com/pufferfish-gg/Pufferfish/blob/HEAD/CONTRIBUTING.md
+         for further information on building and modifying Pufferfish.
+        ===================================================
+    """.trimIndent()
+    error(errorText)
+}
+
 rootProject.name = "pufferfish"
-include("pufferfish-api", "pufferfish-server")
+for (name in listOf("pufferfish-api", "pufferfish-server")) {
+    val projName = name.lowercase(Locale.ENGLISH)
+    include(projName)
+    findProject(":$projName")!!.projectDir = file(name)
+}
+
+gradle.lifecycle.beforeProject {
+    val mcVersion = providers.gradleProperty("mcVersion").get().trim()
+    val pufferfishChannel = providers.gradleProperty("channel").get().trim()
+    val pufferfishBuildNumber = providers.environmentVariable("BUILD_NUMBER").orNull?.trim()?.toInt()
+    val versionString = if (pufferfishBuildNumber == null) {
+        "$mcVersion.local-SNAPSHOT"
+    } else {
+        "$mcVersion.build.$pufferfishBuildNumber-${pufferfishChannel.lowercase()}"
+    }
+    version = versionString
+}

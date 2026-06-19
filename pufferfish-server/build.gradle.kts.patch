@@ -1,9 +1,20 @@
 --- a/paper-server/build.gradle.kts
 +++ b/paper-server/build.gradle.kts
-@@ -23,6 +_,17 @@
+@@ -2,6 +_,8 @@
+ import io.papermc.paperweight.attribute.DevBundleOutput
+ import io.papermc.paperweight.util.*
+ import java.time.Instant
++import kotlin.io.path.createParentDirectories
++import kotlin.io.path.writeText
+ 
+ plugins {
+     `java-library`
+@@ -22,9 +_,21 @@
      minecraftVersion = providers.gradleProperty("mcVersion")
      gitFilePatches = false
  
+-    updatingMinecraft {
++    // Pufferfish start - Rebrand
 +    val pufferfish = forks.register("pufferfish") {
 +        upstream.patchDir("paperServer") {
 +            upstreamPath = "paper-server"
@@ -11,18 +22,23 @@
 +            patchesDir = rootDirectory.dir("pufferfish-server/paper-patches")
 +            outputDir = rootDirectory.dir("paper-server")
 +        }
-+     }
-+
++    }
 +    activeFork = pufferfish
++    // Pufferfish end - Rebrand
 +
-     spigot {
-         enabled = true
-         buildDataRef = "42d18d4c4653ffc549778dbe223f6994a031d69e"
-@@ -104,7 +_,21 @@
++    /*updatingMinecraft { // Pufferfish
+         // oldPaperCommit = "711c5de2b05df39b72c44ff54e9f9381f8d153cb"
+-    }
++    }*/ // Pufferfish end
+ }
+ 
+ tasks.generateDevelopmentBundle {
+@@ -86,7 +_,21 @@
      }
  }
  
 -val log4jPlugins = sourceSets.create("log4jPlugins")
++// Pufferfish start - Rebrand
 +sourceSets {
 +    main {
 +        java { srcDir("../paper-server/src/main/java") }
@@ -33,42 +49,42 @@
 +        resources { srcDir("../paper-server/src/test/resources") }
 +    }
 +}
-+
 +val log4jPlugins = sourceSets.create("log4jPlugins") {
 +    java { srcDir("../paper-server/src/log4jPlugins/java") }
 +}
-+
++// Pufferfish end - Rebrand
  configurations.named(log4jPlugins.compileClasspathConfigurationName) {
      extendsFrom(configurations.compileClasspath.get())
  }
-@@ -127,7 +_,7 @@
+@@ -109,7 +_,7 @@
  }
  
  dependencies {
 -    implementation(project(":paper-api"))
 +    implementation(project(":pufferfish-api")) // Pufferfish
-     implementation("ca.spottedleaf:concurrentutil:0.0.7")
+     implementation("ca.spottedleaf:concurrentutil:0.0.10")
      implementation("org.jline:jline-terminal-ffm:3.27.1") // use ffm on java 22+
      implementation("org.jline:jline-terminal-jni:3.27.1") // fall back to jni on java 21
-@@ -162,6 +_,14 @@
-         isTransitive = false // includes junit
-     }
+@@ -135,6 +_,14 @@
+     implementation("org.ow2.asm:asm-commons:9.9.1")
+     implementation("org.spongepowered:configurate-yaml:4.2.0")
  
 +    // Pufferfish start - config
 +    implementation("org.yaml:snakeyaml:1.32")
-+    implementation ("me.carleslc.Simple-YAML:Simple-Yaml:1.8.4") {
-+        exclude(group="org.yaml", module="snakeyaml")
++    implementation("me.carleslc.Simple-YAML:Simple-Yaml:1.8.4") {
++        exclude(group = "org.yaml", module = "snakeyaml")
 +    }
 +    // Pufferfish end
 +    implementation("com.github.technove:Flare:34637f3f87") // Pufferfish - flare
 +
-     testImplementation("io.github.classgraph:classgraph:4.8.179") // For mob goal test
-     testImplementation("org.junit.jupiter:junit-jupiter:5.12.2")
-     testImplementation("org.junit.platform:junit-platform-suite-engine:1.12.2")
-@@ -185,6 +_,13 @@
+     // Deps that were previously in the API but have now been moved here for backwards compat, eventually to be removed
+     runtimeOnly("commons-lang:commons-lang:2.6")
+     runtimeOnly("org.xerial:sqlite-jdbc:3.49.1.0")
+@@ -159,26 +_,34 @@
      implementation("me.lucko:spark-paper:1.10.152")
  }
  
++
 +// Pufferfish Start - SIMD Optimizations
 +tasks.withType<JavaCompile> {
 +    val compilerArgs = options.compilerArgs
@@ -79,32 +95,53 @@
  tasks.jar {
      manifest {
          val git = Git(rootProject.layout.projectDirectory.path)
-@@ -197,14 +_,14 @@
+         val mcVersion = rootProject.providers.gradleProperty("mcVersion").get()
+         val build = System.getenv("BUILD_NUMBER") ?: null
+-        val buildTime = providers.environmentVariable("BUILD_STARTED_AT").map(Instant::parse).orElse(Instant.EPOCH).get()
++        val buildTime = if (build != null) Instant.now() else Instant.EPOCH // Pufferfish
+         val gitHash = git.exec(providers, "rev-parse", "--short=7", "HEAD").get().trim()
+         val implementationVersion = "$mcVersion-${build ?: "DEV"}-$gitHash"
+         val date = git.exec(providers, "show", "-s", "--format=%ci", gitHash).get().trim()
          val gitBranch = git.exec(providers, "rev-parse", "--abbrev-ref", "HEAD").get().trim()
          attributes(
              "Main-Class" to "org.bukkit.craftbukkit.Main",
 -            "Implementation-Title" to "Paper",
-+            "Implementation-Title" to "Pufferfish",
++            "Implementation-Title" to "Pufferfish", // Pufferfish
              "Implementation-Version" to implementationVersion,
              "Implementation-Vendor" to date,
 -            "Specification-Title" to "Paper",
-+            "Specification-Title" to "Pufferfish",
++            "Specification-Title" to "Pufferfish", // Pufferfish
              "Specification-Version" to project.version,
 -            "Specification-Vendor" to "Paper Team",
 -            "Brand-Id" to "papermc:paper",
 -            "Brand-Name" to "Paper",
-+            "Specification-Vendor" to "Pufferfish Studios LLC",
-+            "Brand-Id" to "pufferfish:pufferfish",
-+            "Brand-Name" to "Pufferfish",
++            "Specification-Vendor" to "Pufferfish Studios LLC", // Pufferfish
++            "Brand-Id" to "pufferfish:pufferfish", // Pufferfish
++            "Brand-Name" to "Pufferfish", // Pufferfish
              "Build-Number" to (build ?: ""),
              "Build-Time" to buildTime.toString(),
              "Git-Branch" to gitBranch,
-@@ -263,7 +_,7 @@
+@@ -237,7 +_,7 @@
      jvmArgumentProviders.add(provider)
  }
  
 -val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("src/generated/java").asFile.toPath()
-+val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("../paper-server/src/generated/java").asFile.toPath()
++val generatedDir: java.nio.file.Path = layout.projectDirectory.dir("../paper-server/src/generated/java").asFile.toPath() // Pufferfish
  idea {
      module {
          generatedSourceDirs.add(generatedDir.toFile())
+@@ -315,7 +_,7 @@
+     mainClass.set(null as String?)
+ }
+ 
+-fill {
++/* fill { // Pufferfish - we don't use fill
+     project("paper")
+     versionFamily(paperweight.minecraftVersion.map { it.split(".", "-").takeWhile { part -> part.toIntOrNull() != null }.take(2).joinToString(".") })
+     version(paperweight.minecraftVersion)
+@@ -330,4 +_,4 @@
+             }
+         }
+     }
+-}
++} */ // Pufferfish - we don't use fill

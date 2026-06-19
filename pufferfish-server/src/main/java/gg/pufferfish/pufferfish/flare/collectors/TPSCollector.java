@@ -23,7 +23,7 @@ public class TPSCollector extends LiveCollector {
 
     @Override
     public void run() {
-        TickData.MSPTData data = MinecraftServer.getServer().tickTimes5s.getMSPTData(null, 50);
+        TickData.MSPTData data = MinecraftServer.getServer().getMSPTData5s();
         double mspt = 0;
         if (data != null) {
             mspt = data.avg();
