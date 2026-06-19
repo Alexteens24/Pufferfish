@@ -33,11 +33,19 @@ This fork is developed by [Pufferfish Host][home], and we can provide additional
 
 ## Building
 
+Build a runnable server JAR (applies patches, compiles, and copies to `dist/`):
+
 ```bash
 ./gradlew build
 ```
 
-Or building a Paperclip JAR for distribution:
+The output JAR is written to `dist/pufferfish-<version>.jar`. Upload it to your server and run:
+
+```bash
+java -jar pufferfish-26.1.2.jar
+```
+
+To build the paperclip JAR without copying to `dist/`:
 
 ```bash
 ./gradlew paperclip

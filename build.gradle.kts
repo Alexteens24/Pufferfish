@@ -60,6 +60,11 @@ subprojects {
         }
     }
 
+    tasks.named("build") {
+        setDependsOn(listOf<Task>())
+        description = "Use the root ./gradlew build task to produce the server JAR"
+    }
+
     repositories {
         mavenCentral()
         maven(paperMavenPublicUrl)
@@ -77,4 +82,49 @@ tasks.register("printPufferfishVersion") {
     doLast {
         println(project.version)
     }
+}
+
+val distJarName = "pufferfish-${providers.gradleProperty("mcVersion").get().trim()}.jar"
+
+tasks.register<Exec>("applyAllPatchesForBuild") {
+    group = "build"
+    description = "Apply all patches before building the server JAR"
+    workingDir = rootDir
+    commandLine("./gradlew", "applyAllPatches", "--no-configuration-cache")
+}
+
+tasks.register<Exec>("createPaperclipForBuild") {
+    group = "build"
+    description = "Build the paperclip JAR after patches are applied"
+    dependsOn("applyAllPatchesForBuild")
+    workingDir = rootDir
+    commandLine("./gradlew", ":pufferfish-server:createPaperclipJar", "--no-configuration-cache")
+}
+
+tasks.register<Copy>("copyPufferfishJarToDist") {
+    group = "build"
+    description = "Copy the runnable paperclip JAR to dist/"
+    dependsOn("createPaperclipForBuild")
+    from(layout.projectDirectory.file("pufferfish-server/build/libs/pufferfish-paperclip-$version.jar"))
+    into(layout.projectDirectory.dir("dist"))
+    rename("pufferfish-paperclip-$version.jar", distJarName)
+    notCompatibleWithConfigurationCache("uses project version in copy paths")
+}
+
+tasks.register("build") {
+    group = "build"
+    description = "Apply patches, build paperclip JAR, and copy to dist/pufferfish-<version>.jar"
+    dependsOn("copyPufferfishJarToDist")
+}
+
+tasks.register("paperclip") {
+    group = "build"
+    description = "Build a runnable paperclip JAR for distribution"
+    dependsOn("createPaperclipForBuild")
+}
+
+tasks.register("buildPufferfishJar") {
+    group = "pufferfish"
+    description = "Apply all patches and build the paperclip JAR"
+    dependsOn("build")
 }
