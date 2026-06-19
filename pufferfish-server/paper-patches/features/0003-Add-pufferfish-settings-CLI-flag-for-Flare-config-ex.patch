@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexteens24 <email_cua_ban@gmail.com>
+Date: Fri, 19 Jun 2026 08:19:27 +0700
+Subject: [PATCH] Add pufferfish-settings CLI flag for Flare config export
+
+Expose parsed OptionSet on Main for ServerConfigurations (PR #117).
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 8ce8de8eedfe8557848b0508857744a5b9641239..424093ab43cb7f37842ac808314d464a47dbc28f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -14,6 +14,7 @@ public class Main {
+     public static final java.time.Instant BOOT_TIME = java.time.Instant.now(); // Paper - track initial start time
+     public static boolean useJline = true;
+     public static boolean useConsole = true;
++    public static OptionSet options = null; // Pufferfish - for ServerConfigurations
+ 
+     // Paper start - Reset loggers after shutdown
+     static {
+@@ -127,6 +128,14 @@ public class Main {
+                         .defaultsTo(new File("paper.yml"))
+                         .describedAs("Yml file");
+ 
++                // Pufferfish start
++                this.acceptsAll(asList("pufferfish", "pufferfish-settings"), "File for Pufferfish settings")
++                        .withRequiredArg()
++                        .ofType(File.class)
++                        .defaultsTo(new File("pufferfish.yml"))
++                        .describedAs("Yml file");
++                // Pufferfish end
++
+                 this.acceptsAll(asList("add-plugin", "add-extra-plugin-jar"), "Specify paths to extra plugin jars to be loaded in addition to those in the plugins folder. This argument can be specified multiple times, once for each extra plugin jar path.")
+                         .withRequiredArg()
+                         .ofType(File.class)
+@@ -151,6 +160,7 @@ public class Main {
+ 
+         try {
+             options = parser.parse(args);
++            Main.options = options; // Pufferfish
+         } catch (joptsimple.OptionException ex) {
+             Logger.getLogger(Main.class.getName()).log(Level.SEVERE, ex.getLocalizedMessage());
+         }

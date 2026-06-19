@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexteens24 <email_cua_ban@gmail.com>
+Date: Fri, 19 Jun 2026 06:58:55 +0700
+Subject: [PATCH] Fix Paper 26.1.2 port compile issues in minecraft features
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/net/minecraft/server/level/ServerChunkCache.java b/net/minecraft/server/level/ServerChunkCache.java
+index 19cbeb789f989bbe6c499cff6989c5d983eac611..936c83e05b247ca1d6099c862075d946e60cdaee 100644
+--- a/net/minecraft/server/level/ServerChunkCache.java
++++ b/net/minecraft/server/level/ServerChunkCache.java
+@@ -522,7 +522,7 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+ 
+         // Pufferfish start - optimize mob spawning
+         if (gg.pufferfish.pufferfish.PufferfishConfig.enableAsyncMobSpawning) {
+-            for (ServerPlayer player : this.level.players) {
++            for (ServerPlayer player : this.level.players()) {
+                 for (int ii = 0; ii < ServerPlayer.MOBCATEGORY_TOTAL_ENUMS; ii++) {
+                     player.mobCounts[ii] = 0;
+ 
+@@ -541,7 +541,7 @@ public class ServerChunkCache extends ChunkSource implements ca.spottedleaf.moon
+                 net.minecraft.server.MinecraftServer.getServer().mobSpawnExecutor.submit(() -> {
+                     int mapped = distanceManager.getNaturalSpawnChunkCount();
+                     ca.spottedleaf.moonrise.common.list.IteratorSafeOrderedReferenceSet.Iterator<Entity> objectiterator =
+-                            level.entityTickList.entities.iterator(ca.spottedleaf.moonrise.common.list.IteratorSafeOrderedReferenceSet.ITERATOR_FLAG_SEE_ADDITIONS);
++                            level.pufferfish$getEntityTickList().entities.iterator(ca.spottedleaf.moonrise.common.list.IteratorSafeOrderedReferenceSet.ITERATOR_FLAG_SEE_ADDITIONS);
+                     try {
+                         gg.pufferfish.pufferfish.util.IterableWrapper<Entity> wrappedIterator =
+                                 new gg.pufferfish.pufferfish.util.IterableWrapper<>(objectiterator);
+diff --git a/net/minecraft/server/level/ServerLevel.java b/net/minecraft/server/level/ServerLevel.java
+index f774b71308aa91ad8f9ffc46620560eecdff5074..b7c6e5ca81a85aab69cf0b590d64a8b1553e3527 100644
+--- a/net/minecraft/server/level/ServerLevel.java
++++ b/net/minecraft/server/level/ServerLevel.java
+@@ -196,6 +196,11 @@ public class ServerLevel extends Level implements WorldGenLevel, ServerEntityGet
+     private final MinecraftServer server;
+     public final io.papermc.paper.world.saveddata.PaperLevelOverrides serverLevelData; // Paper - type
+     private final EntityTickList entityTickList = new EntityTickList();
++    // Pufferfish start - async mob spawning
++    public EntityTickList pufferfish$getEntityTickList() {
++        return this.entityTickList;
++    }
++    // Pufferfish end
+     private final ServerWaypointManager waypointManager;
+     private EnvironmentAttributeSystem environmentAttributes;
+     // Paper - rewrite chunk system
+diff --git a/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index f9cf0da1982bfe2125c942b6e2616fde4ded5977..074cc62c17d6949a3e375b9ec11dd800b1abc699 100644
+--- a/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -1276,7 +1276,6 @@ public class ServerGamePacketListenerImpl
+         }
+     }
+ 
+-        if (!gg.pufferfish.pufferfish.PufferfishConfig.enableBooks && !this.player.getBukkitEntity().hasPermission("pufferfish.usebooks")) return; // Pufferfish
+     @Override
+     public void handleSetJigsawBlock(final ServerboundSetJigsawBlockPacket packet) {
+         PacketUtils.ensureRunningOnSameThread(packet, this, this.player.level());
+@@ -1332,6 +1331,7 @@ public class ServerGamePacketListenerImpl
+ 
+     @Override
+     public void handleEditBook(final ServerboundEditBookPacket packet) {
++        if (!gg.pufferfish.pufferfish.PufferfishConfig.enableBooks && !this.player.getBukkitEntity().hasPermission("pufferfish.usebooks")) return; // Pufferfish
+         // Paper start - Book size limits
+         final io.papermc.paper.configuration.type.number.IntOr.Disabled pageMax = io.papermc.paper.configuration.GlobalConfiguration.get().itemValidation.bookSize.pageMax;
+         if (!this.cserver.isPrimaryThread() && pageMax.enabled()) {
+diff --git a/net/minecraft/world/entity/ai/goal/GoalSelector.java b/net/minecraft/world/entity/ai/goal/GoalSelector.java
+index a45cad2a817d60193c1cd32dae7947dd75618a6b..c5513eb553dfc4f6c117f5413f59cd7513264ee9 100644
+--- a/net/minecraft/world/entity/ai/goal/GoalSelector.java
++++ b/net/minecraft/world/entity/ai/goal/GoalSelector.java
+@@ -37,10 +37,11 @@ public class GoalSelector {
+ 
+     // Paper start - EAR 2
+     public boolean inactiveTick(final int tickRate, final boolean inactive) { // Pufferfish start
+-        if (inactive && !gg.pufferfish.pufferfish.PufferfishConfig.dearEnabled) tickRate = 4; // reset to Paper's
+-        tickRate = Math.min(tickRate, 3);
++        int rate = tickRate;
++        if (inactive && !gg.pufferfish.pufferfish.PufferfishConfig.dearEnabled) rate = 4; // reset to Paper's
++        rate = Math.min(rate, 3);
+         this.curRate++;
+-        return this.curRate % tickRate == 0; // TODO newGoalRate was already unused in 1.20.4, check if this is correct
++        return this.curRate % rate == 0; // TODO newGoalRate was already unused in 1.20.4, check if this is correct
+         // Pufferfish end
+     }
+ 
+diff --git a/net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java b/net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java
+index ab813330132028d4a15925927d6a29a949ab42ff..ff831db0cb16f130ad702677f6805051debeb0a8 100644
+--- a/net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java
++++ b/net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java
+@@ -119,7 +119,7 @@ public abstract class MoveToBlockGoal extends Goal {
+                 for (int x = 0; x <= r; x = x > 0 ? -x : 1 - x) {
+                     for (int z = x < r && x > -r ? r : 0; z <= r; z = z > 0 ? -z : 1 - z) {
+                         pos.setWithOffset(mobPos, x, y - 1, z);
+-                        if (!this.mob.level().hasChunkAt(mutableBlockPos)) continue; // Pufferfish - if this block isn't loaded, continue
++                        if (!this.mob.level().hasChunkAt(pos)) continue; // Pufferfish - if this block isn't loaded, continue
+                         if (this.mob.isWithinHome(pos) && this.isValidTarget(this.mob.level(), pos)) {
+                             this.blockPos = pos;
+                             this.mob.movingTarget = pos == BlockPos.ZERO ? null : pos.immutable(); // Paper
+diff --git a/net/minecraft/world/entity/projectile/Projectile.java b/net/minecraft/world/entity/projectile/Projectile.java
+index 535fc74337ba21dd34fbc7ea118a520427f811c2..35f911a21ec2eedf366361ccdb791977208df208 100644
+--- a/net/minecraft/world/entity/projectile/Projectile.java
++++ b/net/minecraft/world/entity/projectile/Projectile.java
+@@ -50,7 +50,6 @@ public abstract class Projectile extends Entity implements TraceableEntity {
+         super(type, level);
+     }
+ 
+-    protected void setOwner(final @Nullable EntityReference<Entity> owner) {
+     // Pufferfish start
+     private static int loadedThisTick = 0;
+     private static int loadedTick;
+@@ -81,6 +80,7 @@ public abstract class Projectile extends Entity implements TraceableEntity {
+     }
+     // Pufferfish end
+ 
++    protected void setOwner(final @Nullable EntityReference<Entity> owner) {
+         this.owner = owner;
+     }
+ 

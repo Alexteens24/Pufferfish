@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alexteens24 <email_cua_ban@gmail.com>
+Date: Fri, 19 Jun 2026 07:41:48 +0700
+Subject: [PATCH] Harden IteratorSafeOrderedReferenceSet defrag for async mob
+ spawning
+
+Guard defrag against stale firstInvalidIndex during concurrent entity
+list modification (#123).
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+
+diff --git a/src/main/java/ca/spottedleaf/moonrise/common/list/IteratorSafeOrderedReferenceSet.java b/src/main/java/ca/spottedleaf/moonrise/common/list/IteratorSafeOrderedReferenceSet.java
+index adb643a87ad754052c6097aeefc701e7b73f9cbb..a78e86fbd0cf7511e506925465052ef5ab650054 100644
+--- a/src/main/java/ca/spottedleaf/moonrise/common/list/IteratorSafeOrderedReferenceSet.java
++++ b/src/main/java/ca/spottedleaf/moonrise/common/list/IteratorSafeOrderedReferenceSet.java
+@@ -189,9 +189,20 @@ public final class IteratorSafeOrderedReferenceSet<E> {
+         if (this.firstInvalidIndex == 0) {
+             iterator = this.indexMap.reference2IntEntrySet().fastIterator();
+             lastValidIndex = 0;
++        } else if (this.firstInvalidIndex >= this.listSize) {
++            // Pufferfish start - guard against concurrent modification during async mob spawning (#123)
++            iterator = this.indexMap.reference2IntEntrySet().fastIterator();
++            lastValidIndex = 0;
++            // Pufferfish end
+         } else {
+             lastValidIndex = this.firstInvalidIndex;
+             final E key = backingArray[lastValidIndex - 1];
++            if (key == null) {
++                // Pufferfish start - stale firstInvalidIndex, rebuild from map
++                iterator = this.indexMap.reference2IntEntrySet().fastIterator();
++                lastValidIndex = 0;
++                // Pufferfish end
++            } else {
+             iterator = this.indexMap.reference2IntEntrySet().fastIterator(new Reference2IntMap.Entry<E>() {
+                 @Override
+                 public int getIntValue() {
+@@ -208,6 +219,7 @@ public final class IteratorSafeOrderedReferenceSet<E> {
+                     return key;
+                 }
+             });
++            }
+         }
+ 
+         while (iterator.hasNext()) {
